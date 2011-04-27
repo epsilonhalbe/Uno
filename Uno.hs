@@ -1,4 +1,4 @@
---module Uno (Card, Color, Player, Direction, putCard, get_HPlayers_Deck, drawCards, getRandomCardfrom, nextPlayer, cancel, pick, nplicate)
+-- module Uno (Card, Color, Player, Direction, putCard, get_Players_Deck, drawCards, getRandomCardfrom, nextPlayer, cancel, pick, nplicate)
 
 {-1 game:
     2 players:
@@ -31,7 +31,7 @@ data Color = Black|Blue|Green|Yellow|Red
 data Value = Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Plus2|Stop|ChDir|Plus4|ChCol
     deriving (Read, Show, Eq, Ord, Enum)
 
-data Player = HumanPlayer {name::String, hand::[Card], index::Int} -- |AiPlayer {name::String, hand::[Card], index::Int}
+data Player = Player {name::String, hand::[Card]} -- |AiPlayer {name::String, hand::[Card], index::Int}
     deriving (Read, Show, Eq, Ord)
 
 data Direction = Forward | Backward
@@ -46,37 +46,55 @@ main = do
     let full_deck = (zeroes ++ (nplicate 2 ncards) ++ (nplicate 4 blacks))
     putStrLn "how many players do play this game?"
     c <- getChar
-    num_of_players <- return (read [c] :: Int)--watch out for hflush errors ++make safe++
-    (rest,players) <- get_HPlayers_Deck 2 full_deck
+    num_of_players <- return (read [c] :: Int) -- watch out for hflush errors ++make safe++
+    (rest,players) <- get_Players_Deck 2 full_deck
     n <- getStdRandom (randomR (0,(length players) - 1))
     let starting_player = players !! n
     (deck, discard_stack) <- drawCards 1 rest
-    game_loop Forward players starting_player discard_stack deck
+    game_loop Forward players discard_stack deck
     putStrLn ((name starting_player) ++ (show discard_stack) ++ (show players))
 
-game_loop :: Direction -> [Player] -> Player-> [Card] -> [Card] -> IO ()
-game_loop dir players player d_stack deck = do
-    putStrLn $ show (last d_stack)
-    putStrLn $ show (hand player)
-    (d_stack',hand') <- putCard player d_stack
-    if hand' /= [] then do
-        -- prepare the next round
-        let dir' = getDir (last d_stack') dir
-        let player' = nextPlayer player players dir'
-        putStrLn "foddo dreck"
-    else do
-        putStrLn ("congratulations " ++ show (name player))
+game_loop :: Direction -> [Player] -> [Card] -> [Card] -> IO ()
+game_loop dir (player:others) d_stack deck = do
+    let topcard = last d_stack
+    putStrLn $ show (topcard)
+{-jibberjabber-}
+    case (value topcard) of Stop  -> do
+                                        putStrLn "Stop - Hammertime"
+                                        game_loop dir (others++[player]) d_stack deck
+                            Plus2 -> do
+                                        putStrLn "Nimm 2 denn naschen ist gesund"
+                                        let (deck',pluscards) = drawCards 2 deck
+                                        let tempplayer = Player "temp" ((hand player) ++ pluscards)
+                                        (d_stack', hand') <- putCard tempplayer d_stack
+                                        let player' = Player (name player) hand'
+                                        game_loop dir' (players' ++ player') d_stack' deck'
+                            Plus4 -> do
+                                        putStrLn "ohooo nimm' doch 4 karten"
+                                        let (deck',pluscards) = drawCards 4 deck
+                                        let player' = Player (name player) (hand player)++pluscards
+                                        putStrLn "foo"
+                            _     -> do
+                                        let dir' = getDir (last d_stack') dir
+                                        putStrLn $ show (hand player)
+                                        (d_stack',hand') <- putCard player d_stack
+                                        -- wincondition
+                                        if hand' /= [] then do
+                                            putStrLn "foo"
+                                        else do
+                                            putStrLn ("congratulations " ++ show (name player))
 
-get_HPlayers_Deck :: Int -> [Card] -> IO ([Card],[Player])
-get_HPlayers_Deck n deck = get_HPlayers_Deck' n deck [] where
-    get_HPlayers_Deck' n deck players
+-- todo - make for players not only hplayers --
+get_Players_Deck :: Int -> [Card] -> IO ([Card],[Player])
+get_Players_Deck n deck = get_Players_Deck' n deck [] where
+    get_Players_Deck' n deck players
         | n<=0 = return (deck, players)
         | otherwise = do
             putStrLn ("please enter player " ++ show n ++ "'s name")
-            name <- getLine --make safe version
+            name <- getLine -- make safe version
             (deck', hand) <- drawCards 5 deck
-            let player = [HumanPlayer name hand n]
-            get_HPlayers_Deck' (n - 1) deck' (player ++ players)
+            let player = [Player name hand n]
+            get_Players_Deck' (n - 1) deck' (player ++ players)
 
 drawCards :: Int -> [Card] -> IO ([Card],[Card])
 drawCards n cards = drawCards' n (cards, []) where
@@ -92,9 +110,9 @@ getRandomCardfrom cards = do
     return $ pick n cards
 
 putCard :: Player -> [Card] -> IO ([Card],[Card])
-putCard (HumanPlayer name hand i) d_stack = do
-    putStrLn "which card do you put"
-    c <- getChar
+putCard (Player name hand) d_stack = do
+    putStrLn "which card do you put down"
+    c <- getChar -- make safe version
     n <- return (read [c] :: Int)
     let card = last d_stack
     let pcard = (hand !! (n - 1))
@@ -103,7 +121,7 @@ putCard (HumanPlayer name hand i) d_stack = do
         then return ((d_stack ++ [pcard], hand'))
         else do
                 putStrLn "take a valid card or take one with 0"
-                putCard (HumanPlayer name hand i) d_stack
+                putCard (Player name hand) d_stack
 
 getDir :: Card -> Direction-> Direction
 getDir (Card _ value) dir
@@ -118,6 +136,11 @@ nextPlayer player players dir
     |otherwise = players !! ((n - 1) `mod` l)
     where l = length players
           n = index player
+
+nextPlayers :: Direction -> [Player] -> [Player]
+nextPlayers dir players
+    |(dir == Forward) = players
+    |otherwise = reverse players
 
 
 {- Auxiliary Functions -}
