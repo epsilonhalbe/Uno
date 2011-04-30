@@ -14,6 +14,7 @@
 
 
 import System.Random (getStdRandom, randomR)
+import System.Console.ANSI
 import Data.List (elemIndex)
 
 data Card = Card {color::Color,value::Value}
@@ -26,8 +27,8 @@ instance Enum Card where
     toEnum n = let (v,s) = n `divMod` 5 in Card (toEnum v) (toEnum s)
     fromEnum c = fromEnum (value c) * 5 + fromEnum (color c)
 
-data Color = Black|Blue|Green|Yellow|Red
-    deriving (Read, Show, Eq, Ord, Enum)
+-- data Color = Black|Blue|Green|Yellow|Red
+--    deriving (Read, Show, Eq, Ord, Enum)
 data Value = Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Plus2|Stop|ChDir|Plus4|ChCol
     deriving (Read, Show, Eq, Ord, Enum)
 
@@ -38,7 +39,7 @@ data Direction = Forward | Backward
     deriving (Eq)
 
 
-main:: IO ()
+main :: IO ()
 main = do
     let zeroes = [Card c Zero | c <- [Blue .. Red]]
     let ncards = [Card c v | c <- [Blue .. Red],v <- [One .. ChDir]]
@@ -54,21 +55,21 @@ main = do
     game_loop Forward players discard_stack deck
     putStrLn ((name starting_player) ++ (show discard_stack) ++ (show players))
 
-game_loop :: Direction -> [Player] -> [Card] -> [Card] -> IO ()
-game_loop dir (player:others) d_stack deck = do
+game_loop :: [Player] -> [Card] -> [Card] -> IO ()
+game_loop (player:others) d_stack deck = do
     let topcard = last d_stack
     putStrLn $ show (topcard)
 {-jibberjabber-}
     case (value topcard) of Stop  -> do
                                         putStrLn "Stop - Hammertime"
-                                        game_loop dir (others++[player]) d_stack deck
+                                        game_loop (others++[player]) d_stack deck
                             Plus2 -> do
                                         putStrLn "Nimm 2 denn naschen ist gesund"
-                                        let (deck',pluscards) = drawCards 2 deck
+                                        let (deck', pluscards) = drawCards 2 deck
                                         let tempplayer = Player "temp" ((hand player) ++ pluscards)
                                         (d_stack', hand') <- putCard tempplayer d_stack
                                         let player' = Player (name player) hand'
-                                        game_loop dir' (players' ++ player') d_stack' deck'
+                                        game_loop (players' ++ [player']) d_stack' deck'
                             Plus4 -> do
                                         putStrLn "ohooo nimm' doch 4 karten"
                                         let (deck',pluscards) = drawCards 4 deck
@@ -79,9 +80,11 @@ game_loop dir (player:others) d_stack deck = do
                                         putStrLn $ show (hand player)
                                         (d_stack',hand') <- putCard player d_stack
                                         -- wincondition
-                                        if hand' /= [] then do
+                                        if hand' /= []
+                                          then do
                                             putStrLn "foo"
-                                        else do
+                                            game_loop dir players' d_stack' deck'
+                                          else do
                                             putStrLn ("congratulations " ++ show (name player))
 
 -- todo - make for players not only hplayers --
@@ -130,18 +133,26 @@ getDir (Card _ value) dir
         |otherwise = dir
 
 -- elegant für speed -- aber ?? zu lesen ??
+{-
 nextPlayer :: Player -> [Player] -> Direction -> Player
 nextPlayer player players dir
     |dir == Forward = players  !! ((n + 1) `mod` l)
     |otherwise = players !! ((n - 1) `mod` l)
     where l = length players
           n = index player
+-}
 
 nextPlayers :: Direction -> [Player] -> [Player]
 nextPlayers dir players
     |(dir == Forward) = players
     |otherwise = reverse players
 
+
+display :: Card -> IO ()
+display (Card color value) = do
+    setSGR [SetColor Foreground Vivid color]
+    putStr $ show (Card color value)
+    setSGR [SetColor Foreground Vivid White]
 
 {- Auxiliary Functions -}
 
