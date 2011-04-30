@@ -66,13 +66,21 @@ game_loop (player:others) d_stack deck = do
                                         game_loop (others++[player]) d_stack deck
                             Plus2 -> do
                                         putStrLn "Nimm 2 denn naschen ist gesund"
+<<<<<<< HEAD
                                         (deck', pluscards) <- drawCards 2 deck
                                         let tempplayer = updatePlayer player ((hand player) ++ pluscards)
                                         putStrLn $ show (hand player)
                                         (d_stack', hand') <- putCard tempplayer d_stack
                                         let player' = updatePlayer player hand'
                                         let dir' = getDir (last d_stack') dir -- todo put this into nextPlayers
+                                        game_loop dir' (others ++ [player']) d_stack' deck'
+=======
+                                        let (deck', pluscards) = drawCards 2 deck
+                                        let tempplayer = Player "temp" ((hand player) ++ pluscards)
+                                        (d_stack', hand') <- putCard tempplayer d_stack
+                                        let player' = Player (name player) hand'
                                         game_loop (players' ++ [player']) d_stack' deck'
+>>>>>>> homework
                             Plus4 -> do
                                         putStrLn "ohooo nimm' doch 4 karten"
                                         (deck', pluscards) <- drawCards 4 deck
@@ -153,6 +161,14 @@ getDir (Card _ value) dir
         |otherwise = dir
 
 -- elegant für speed -- aber ?? zu lesen ??
+<<<<<<< HEAD
+-- nextPlayer :: Player -> [Player] -> Direction -> Player
+-- nextPlayer player players dir
+--    |dir == Forward = players  !! ((n + 1) `mod` l)
+--    |otherwise = players !! ((n - 1) `mod` l)
+--    where l = length players
+--          n = index player
+=======
 {-
 nextPlayer :: Player -> [Player] -> Direction -> Player
 nextPlayer player players dir
@@ -161,6 +177,7 @@ nextPlayer player players dir
     where l = length players
           n = index player
 -}
+>>>>>>> homework
 
 nextPlayers :: Direction -> [Player] -> [Player]
 nextPlayers dir players
