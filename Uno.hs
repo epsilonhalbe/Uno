@@ -12,13 +12,32 @@
     back to loop
 -}
 
----------- idea make datatype round { players :: [Player], dir :: Direction, d_stack :: [Card], deck :: [Card] }
-
 import System.Random (getStdRandom, randomR)
-import System.Console.ANSI
+import System.Console.ANSI (setSGR,SGR(SetColor),ColorIntensity(Vivid),ConsoleLayer(Foreground),Color(Black, Red, Green, Yellow, Blue, Magenta, Cyan, White))
 import Data.List (elemIndex)
 
-data Card = Card {color::Color,value::Value}
+-- data Color = Black|Red|Green|Yellow|Blue|White
+--     deriving (Read, Show, Eq, Ord, Enum)
+
+-- additional instances for the Color datatype
+instance Eq Color where
+   x == y  =  fromEnum x == fromEnum y
+instance Ord Color where
+   compare x y  =  compare (fromEnum x) (fromEnum y)
+instance Read Color where
+   readsPrec _ str   = [(color (c), t) |
+                               (c, t) <- reads str]
+                     where color x = case x of "Black" -> Black
+                                               "Red" -> Red
+                                               "Green" -> Green
+                                               "Yellow" -> Yellow
+                                               "Blue" -> Blue
+                                               "Magenta" -> Magenta
+                                               "Cyan" -> Cyan
+                                               "White" -> White
+
+
+data Card = Card {color::Color ,value::Value}
     deriving (Read, Eq)
 instance Show Card where
     show c = show (color c, value c)
@@ -28,22 +47,17 @@ instance Enum Card where
     toEnum n = let (v,s) = n `divMod` 5 in Card (toEnum v) (toEnum s)
     fromEnum c = fromEnum (value c) * 5 + fromEnum (color c)
 
--- data Color = Black|Blue|Green|Yellow|Red
---    deriving (Read, Show, Eq, Ord, Enum)
 data Value = Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Plus2|Stop|ChDir|Plus4|ChCol
     deriving (Read, Show, Eq, Ord, Enum)
 
 data Player = HPlayer {name::String, hand::[Card]} | AiPlayer {name::String, hand::[Card]}
-    deriving (Read, Show, Eq, Ord)
-
-data Direction = Forward | Backward
-    deriving (Eq)
+    deriving (Show)
 
 
 main :: IO ()
 main = do
-    let zeroes = [Card c Zero | c <- [Blue .. Red]]
-    let ncards = [Card c v | c <- [Blue .. Red],v <- [One .. ChDir]]
+    let zeroes = [Card c Zero | c <- [Red .. Blue]]
+    let ncards = [Card c v | c <- [Red .. Blue],v <- [One .. ChDir]]
     let blacks = [Card Black v | v <- [Plus4,ChCol]]
     let full_deck = (zeroes ++ (nplicate 2 ncards) ++ (nplicate 4 blacks))
     putStrLn "how many players do play this game?"
@@ -53,7 +67,7 @@ main = do
     n <- getStdRandom (randomR (0,(length players) - 1))
     let starting_player = players !! n
     (deck, discard_stack) <- drawCards 1 rest
-    game_loop Forward players discard_stack deck
+    game_loop players discard_stack deck
     putStrLn ((name starting_player) ++ (show discard_stack) ++ (show players))
 
 game_loop :: [Player] -> [Card] -> [Card] -> IO ()
@@ -64,40 +78,36 @@ game_loop (player:others) d_stack deck = do
     case (value topcard) of Stop  -> do
                                         putStrLn "Stop - Hammertime"
                                         game_loop (others++[player]) d_stack deck
-                            Plus2 -> do
-                                        putStrLn "Nimm 2 denn naschen ist gesund"
-                                        (deck', pluscards) <- drawCards 2 deck
-                                        let tempplayer = updatePlayer player ((hand player) ++ pluscards)
-                                        putStrLn $ show (hand player)
-                                        (d_stack', hand') <- putCard tempplayer d_stack
-                                        let player' = updatePlayer player hand'
-                                        let dir' = getDir (last d_stack') dir -- todo put this into nextPlayers
-                                        game_loop (players' ++ [player']) d_stack' deck'
-                            Plus4 -> do
-                                        putStrLn "ohooo nimm' doch 4 karten"
-                                        (deck', pluscards) <- drawCards 4 deck
-                                        let tempplayer = updatePlayer player ((hand player) ++ pluscards)
-                                        putStrLn $ show (hand player)
-                                        (d_stack', hand') <- putCard tempplayer d_stack
-                                        let player' = updatePlayer player hand'
-                                        let dir' = getDir (last d_stack') dir -- todo put this into nextPlayers
-                                        game_loop dir' (others ++ [player']) (tail d_stack') deck' -- memo special handling for black cards
-                            ChCol -> do
-                                        putStrLn $ show (hand player)
-                                        (d_stack', hand') <- putCard player d_stack
-                                        let player' = updatePlayer player hand'
-                                        let dir' = getDir (last d_stack') dir -- todo put this into nextPlayers
-                                        -- wincondition
-                                        game_loop dir' (others ++ [player']) (tail d_stack') deck -- memo special handling for black cards
+            {-      Take-}  Plus2 -> do
+            {-          -}              putStrLn "Nimm 2 denn naschen ist gesund"
+            {-          -}              (deck', pluscards) <- drawCards 2 deck
+            {-          -}              let temp = updatePlayer player ((hand player) ++ pluscards)
+            {-          -}              putStrLn $ show (hand player)
+            {-          -}              (d_stack', hand', players') <- putCard_Phase (temp:others) d_stack
+            {-          -}              let player' = updatePlayer player hand'
+            {-          -}              game_loop (players' ++ [player']) d_stack' deck'
+    {-Black {-   -}     -}  Plus4 -> do
+    {-      {-   -}     -}              putStrLn "ohooo nimm' doch 4 karten"
+    {-      {-   -}     -}              (deck', pluscards) <- drawCards 4 deck
+    {-      {-   -}     -}              let temp = updatePlayer player ((hand player) ++ pluscards)
+    {-      {-   -}     -}              putStrLn $ show (hand player)
+    {-      {-   -}     -}              (d_stack', hand', players') <- putCard_Phase (temp:others) d_stack
+    {-      {-   -} Take-}              game_loop players' (tail d_stack') deck'
+                                        -- memo special handling for black cards
+    {-           -}         ChCol -> do
+    {-           -}                     putStrLn $ show (hand player)
+    {-           -}                     (d_stack', hand', players') <- putCard_Phase (player:others) d_stack
+    {-           -}                     -- wincondition
+    {-Black      -}                     game_loop players' (tail d_stack') deck
+                                        -- memo special handling for black cards
                             _ -> do
                                         putStrLn $ show (hand player)
-                                        (d_stack',hand') <- putCard player d_stack
-                                        let dir' = getDir (last d_stack') dir
+                                        (d_stack', hand', players') <- putCard_Phase (player:others) d_stack
                                         -- wincondition
                                         if hand' /= []
                                           then do
                                             putStrLn "foo"
-                                            game_loop dir players' d_stack' deck'
+                                            game_loop players' d_stack' deck
                                           else do
                                             putStrLn ("congratulations " ++ show (name player))
 
@@ -126,8 +136,8 @@ getRandomCardfrom cards = do
     n <- getStdRandom (randomR (0,(length cards) - 1))
     return $ pick n cards
 
-putCard :: Player -> [Card] -> IO ([Card],[Card])
-putCard player d_stack = do
+putCard_Phase :: [Player] -> [Card] -> IO ([Card],[Card],[Player])
+putCard_Phase (player:others) d_stack = do
     hand <- return (hand player)
     putStrLn "which card do you put down"
     c <- getChar -- todo make safe version
@@ -136,43 +146,33 @@ putCard player d_stack = do
     let pcard = (hand !! (n - 1))
     let hand' = cancel n hand
     if ((color pcard == color card) || (value pcard == value card) || color pcard == Black)
-        then return ((d_stack ++ [pcard], hand')) -- make special handling of black cards
+        then do
+                case (value pcard) of ChDir -> do
+                                          let player' = updatePlayer player hand'
+                                          let players' = (reverse others)++[player']
+                                          return $ (d_stack ++ [pcard], hand', players')
+                                  -- make special handling of black cards
+                                      Plus4 -> do
+                                          let player' = updatePlayer player hand'
+                                          let players' = others++[player']
+                                          return $ (d_stack ++ [pcard], hand', players')
+                                          -- make special handling of black cards
+
         else do
                 putStrLn "take a valid card or take one with 0"
-                putCard (updatePlayer player hand) d_stack
+                putCard_Phase (player:others) d_stack
+
 {- todo make special procedures for black cards -}
 
 updatePlayer :: Player -> [Card] -> Player
 updatePlayer (HPlayer name _) hand = HPlayer name hand
 updatePlayer (AiPlayer name _) hand = AiPlayer name hand
 
-getDir :: Card -> Direction-> Direction
-getDir (Card _ value) dir
-        |(value == ChDir && dir == Forward) = Backward
-        |(value == ChDir && dir == Backward) = Forward
-        |otherwise = dir
-
--- elegant für speed -- aber ?? zu lesen ??
-{-
-nextPlayer :: Player -> [Player] -> Direction -> Player
-nextPlayer player players dir
-    |dir == Forward = players  !! ((n + 1) `mod` l)
-    |otherwise = players !! ((n - 1) `mod` l)
-    where l = length players
-          n = index player
--}
-
-nextPlayers :: Direction -> [Player] -> [Player]
-nextPlayers dir players
-    |(dir == Forward) = players
-    |otherwise = reverse players
-
-
 display :: Card -> IO ()
 display (Card color value) = do
-    setSGR [SetColor Foreground Vivid color]
+    -- setSGR [SetColor Foreground Vivid color]
     putStr $ show (Card color value)
-    setSGR [SetColor Foreground Vivid White]
+    -- setSGR [SetColor Foreground Vivid White]
 
 {- Auxiliary Functions -}
 
