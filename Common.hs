@@ -27,11 +27,11 @@ instance Enum Card where
     toEnum n = let (v,s) = n `divMod` 5 in Card (toEnum v) (toEnum s)
     fromEnum c = fromEnum (value c) * 5 + fromEnum (color c)
 
-data Value = Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Plus2|Stop|ChDir|Plus4|ChCol
+data Value = Zero|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Plus2|Stop|ChDir|Plus4|ChCol|Dummy
     deriving (Read, Show, Eq, Ord, Enum)
 
 data Player = HPlayer {name::String, hand::[Card]} | AiPlayer {name::String, hand::[Card]}
-    deriving (Show)
+    deriving (Show, Eq)
 --- state = (players, deck, d_stack)
 data State = State {players :: [Player], deck :: Deck, d_stack :: D_Stack}
 

@@ -5,11 +5,12 @@ import Data.List (elemIndex)
 import Common
 
 main = runTests $ do
-    planTests 9
+    planTests 7
     let zeroes = [Card c Zero | c <- [Red .. Blue]]
-    let ncards = [Card c v | c <- [Red .. Blue],v <- [One .. ChDir]]
-    let blacks = [Card Black v | v <- [Plus4,ChCol]]
-    let full_deck = (zeroes ++ (nplicate 2 ncards) ++ (nplicate 4 blacks))
+        ncards = [Card c v | c <- [Red .. Blue],v <- [One .. ChDir]]
+        blacks = [Card Black v | v <- [Plus4,ChCol]]
+        full_deck = (zeroes ++ (nplicate 2 ncards) ++ (nplicate 4 blacks))
+        testplayer = HPlayer "testor" [Card Red One, Card Blue Two, Card Green Four, Card Red Stop]
 
     is ("foo" == "foo") True $ Just "test testing"
 
@@ -20,3 +21,5 @@ main = runTests $ do
     is (ys !! 3) 4 $ Just "!! test - programmers start counting at 0"
     is (pick 3 xs) (([10,9,8]++[6,5..1]),7) $ Just "pick one and give rest"
     is (nplicate 3 xs) (xs++xs++xs) $ Just "n-plicate a list"
+    is (updatePlayer testplayer zeroes) (HPlayer "testor" zeroes) $ Just "update a players hand"
+    is (
