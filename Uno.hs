@@ -21,10 +21,10 @@ main = do
     (deck, d_stack) <- drawCards 1 rest
     let players' = (drop n players) ++ (take n players)
     putStrLn ((show d_stack) ++ (show players'))
-    new_game_loop (State players' deck d_stack)
+    game_loop (State players' deck d_stack)
 
-new_game_loop :: State -> IO ()
-new_game_loop state = do
+game_loop :: State -> IO ()
+game_loop state = do
     let topcard = head d_stack
     putStr "The top card on the Stack: "
     displayCs d_stack
@@ -36,14 +36,14 @@ new_game_loop state = do
                         -- putStrLn $ show (hand player)
                         (State players' deck' td_stack) <- putCard_Phase1 state
                         let state' =  State players' deck' (remove_fake td_stack)
-                        win (last players') (new_game_loop state')
+                        win (last players') (game_loop state')
               _ -> do
                         putStrLn $ "Player: " ++ (name player)
                         putStrLn "0: Take a Card"
                         displayCs (hand player)
                         -- putStrLn $ show (hand player)
                         state'<- putCard_Phase1 state
-                        win (last $ players state') (new_game_loop state')
+                        win (last $ players state') (game_loop state')
     where
         (State (player:others) deck d_stack) = state
         v = value (head d_stack)
@@ -91,9 +91,12 @@ putCard_Phase1 state = do
 putCard_Phase2 :: Int -> State -> IO State
 putCard_Phase2 n state
     | n == 0 = do
-        (deck',hand') <- drawCards 1 deck
+        ((State _ deck' d_stack'),hand') <- new_drawCards 1 state
         let player' = updatePlayer player (hand'++p_hand)
-        return $ (State (others++[player']) deck' d_stack)
+        -- putCard_Phase1 (State (others++[player']) deck' d_stack')
+        -- in the mean time take cards until you can play
+        return $ (State (others++[player']) deck' d_stack')
+        -- todo if card = Dummy do not remove the dummycard
     | 1 <= n && n <= (length p_hand) = putCard_Phase3 n state
     | otherwise = do
         putStrLn "number out of bounds - try again"
@@ -123,14 +126,14 @@ putCard_Phase4 card state
                             let players' = (reverse others) ++ [player]
                             return $ (State players' deck ([card]++d_stack))
     | v == Plus2 = do
-                            (deck', pluscards) <- drawCards 2 deck
+                            (State _ deck' d_stack', pluscards) <- new_drawCards 2 state
                             let p2' = updatePlayer p2 ((hand p2) ++ pluscards)
-                            return $ (State ((p2':others') ++ [player]) deck' (card:d_stack))
+                            return $ (State ((p2':others') ++ [player]) deck' (card:d_stack'))
     | v == Plus4 = do
-                            (deck', pluscards) <- drawCards 4 deck
+                            (State _ deck' d_stack', pluscards) <- new_drawCards 4 state
                             let p2' = updatePlayer p2 ((hand p2) ++ pluscards)
                             dummy <- getDummy card
-                            return $ (State ((p2':others') ++ [player]) deck' (dummy:card:d_stack))
+                            return $ (State ((p2':others') ++ [player]) deck' (dummy:card:d_stack'))
     | v == Stop = do
                             let players' = (others') ++ [player,p2]
                             return $ (State players' deck ([card]++d_stack))
@@ -166,8 +169,8 @@ getDummy c = do
 
 remove_fake :: [a] -> [a]
 remove_fake [] = error "too few cards"
-remove_fake (c:[]) = error "too few cards"
-remove_fake (c:fake:cs) = (c:cs)
+remove_fake (_:[]) = error "too few cards"
+remove_fake (c:_:cs) = (c:cs)
 
 win :: Player -> IO () -> IO ()
 win player f
@@ -195,11 +198,11 @@ displayC' n (Card color value) = do
             |(mod n 8) == 0= "\n"
             |otherwise = []
 
-displayC :: Card -> IO ()
-displayC (Card color value) = do
-    setSGR [SetColor Foreground Vivid color]
-    putStr $ "|"++show value ++"|"
-    setSGR [SetColor Foreground Vivid White]
+-- displayC :: Card -> IO ()
+-- displayC (Card color value) = do
+--     setSGR [SetColor Foreground Vivid color]
+--     putStr $ "|"++show value ++"|"
+--     setSGR [SetColor Foreground Vivid White]
 
 {- Auxiliary Functions -}
 -- safeGetInt :: Int
