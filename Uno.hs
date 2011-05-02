@@ -19,16 +19,19 @@ main = do
     (rest,players) <- get_Players_Deck num_of_players full_deck
     n <- getStdRandom (randomR (0,(length players) - 1))
     (deck, d_stack) <- drawCards 1 rest
-    let players' = (drop n players) ++ (take n players)
-    putStrLn ((show d_stack) ++ (show players'))
+    let topcard = head d_stack
+        players' = (drop n players) ++ (take n players)
+        initstate = State players' deck []
+    state' <- putCard_Phase4 topcard initstate
+    -- putStrLn ((show d_stack) ++ (show players'))
     game_loop (State players' deck d_stack)
 
 game_loop :: State -> IO ()
 game_loop state = do
     let topcard = head d_stack
     putStr "The top card on the Stack: "
-    displayCs d_stack
-    -- displayC topcard
+    -- displayCs d_stack
+    displayC' 1 topcard
     putStrLn "\n\n\n\n"
     case v of Dummy -> do
                         putStrLn $ "Player: " ++ (name player)
@@ -47,40 +50,6 @@ game_loop state = do
     where
         (State (player:others) deck d_stack) = state
         v = value (head d_stack)
-
-get_Players_Deck :: Int -> [Card] -> IO (Deck, [Player])
-get_Players_Deck n deck = get_Players_Deck' n deck [] where
-    get_Players_Deck' n deck players
-        | n <= 0 = return (deck, players)
-        | otherwise = do
-            putStrLn ("please enter player " ++ show n ++ "'s name")
-            name <- getLine -- todo make safe version
-            (deck', hand) <- drawCards 5 deck
-            let player = HPlayer name hand
-            get_Players_Deck' (n - 1) deck' ([player] ++ players)
-
-drawCards :: Int -> [Card] -> IO (Deck, Hand)
--- todo make safe drawing e.g. draw 4 and just 3 cards in deck
-drawCards n cards = drawCards' n (cards, []) where
-    drawCards' n (cards, drawn)
-            |n <= 0 = return (cards,drawn)
-            |otherwise = do
-                (cs, c) <- getRandomCardfrom cards
-                drawCards' (n - 1) (cs,[c] ++ drawn)
-
-new_drawCards :: Int -> State -> IO (State, Hand)
-new_drawCards n state = new_drawCards' n (state, []) where
-    new_drawCards' n (state, drawn)
-        |n <= 0 = return (state, drawn)
-        |deck == [] = new_drawCards' n (State players d_stack [topcard], drawn)
-        |otherwise = new_drawCards' (n - 1) (State players cs d_stack,c:drawn)
-        where (State players deck (topcard:d_stack)) = state
-              (c:cs) = deck
-
-getRandomCardfrom :: [Card] -> IO ([Card],Card)
-getRandomCardfrom cards = do
-    n <- getStdRandom (randomR (0,(length cards) - 1))
-    return $ pick n cards
 
 putCard_Phase1 :: State -> IO State
 putCard_Phase1 state = do
@@ -120,6 +89,7 @@ putCard_Phase3 n state
         new_hand = cancel n p_hand
         player' = updatePlayer player new_hand
 
+
 putCard_Phase4 :: Card -> State -> IO State
 putCard_Phase4 card state
     | v == ChDir = do
@@ -147,6 +117,41 @@ putCard_Phase4 card state
         State (player:others) deck d_stack = state
         (p2:others') = others
 
+get_Players_Deck :: Int -> [Card] -> IO (Deck, [Player])
+get_Players_Deck n deck = get_Players_Deck' n deck [] where
+    get_Players_Deck' n deck players
+        | n <= 0 = return (deck, players)
+        | otherwise = do
+            putStrLn ("please enter player " ++ show n ++ "'s name")
+            name <- getLine -- todo make safe version
+            (deck', hand) <- drawCards 5 deck
+            let player = HPlayer name hand
+            get_Players_Deck' (n - 1) deck' ([player] ++ players)
+
+drawCards :: Int -> [Card] -> IO (Deck, Hand)
+-- todo make safe drawing e.g. draw 4 and just 3 cards in deck
+drawCards n cards = drawCards' n (cards, []) where
+    drawCards' n (cards, drawn)
+            |n <= 0 = return (cards,drawn)
+            |otherwise = do
+                (cs, c) <- getRandomCardfrom cards
+                drawCards' (n - 1) (cs,[c] ++ drawn)
+
+new_drawCards :: Int -> State -> IO (State, Hand)
+new_drawCards n state = new_drawCards' n (state, []) where
+    new_drawCards' n (state, drawn)
+        |n <= 0 = return (state, drawn)
+        |deck == [] = new_drawCards' n (State players d_stack' [topcard], drawn)
+        |otherwise = new_drawCards' (n - 1) (State players cs d_stack, c:drawn)
+        where (State players deck d_stack) = state
+              (topcard:d_stack') = d_stack
+              (c:cs) = deck
+
+getRandomCardfrom :: [Card] -> IO ([Card],Card)
+getRandomCardfrom cards = do
+    n <- getStdRandom (randomR (0,(length cards) - 1))
+    return $ pick n cards
+
 equiv :: Card -> Card -> Bool
 equiv c1 c2
     | color c1 == color c2 = True
@@ -165,7 +170,6 @@ getDummy c = do
               3 -> do return $ Card Yellow Dummy
               4 -> do return $ Card Blue Dummy
               _ -> do getDummy c
-
 
 remove_fake :: [a] -> [a]
 remove_fake [] = error "too few cards"
