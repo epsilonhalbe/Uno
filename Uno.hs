@@ -6,8 +6,11 @@ import System.Console.ANSI (setSGR,SGR(SetColor),ColorIntensity(Vivid),ConsoleLa
 import Data.List (elemIndex)
 import Control.Applicative ((<$>))
 
-import System.Console.ANSI (Color(Black, Red, Green, Yellow, Blue, Magenta, Cyan, White))
--- additional instances for the Color datatype
+
+-- todo -- sort cards
+-- todo -- test on windows
+
+
 main :: IO ()
 main = do
     let zeroes = [Card c Zero | c <- [Red .. Blue]]
@@ -16,7 +19,7 @@ main = do
         full_deck = (zeroes ++ (nplicate 2 ncards) ++ (nplicate 4 blacks))
     putStrLn "how many players do play this game?"
     num_of_players <- safeGetInt
-    (rest,players) <- get_Players_Deck num_of_players full_deck
+    (rest,players) <- get_Players_Deck num_of_players full_deck -- deprecated -- get_Players_Deck
     n <- getStdRandom (randomR (0,(length players) - 1))
     (deck, d_stack) <- drawCards 1 rest
     let topcard = head d_stack
@@ -30,7 +33,8 @@ game_loop :: State -> IO ()
 game_loop state = do
     let topcard = head d_stack
     putStr "The top card on the Stack: "
-    -- displayCs d_stack
+    -- debug --  displayCs d_stack
+    -- clear screen and make fully black background in shell
     displayC' 1 topcard
     putStrLn "\n\n\n\n"
     case v of Dummy -> do
@@ -38,7 +42,7 @@ game_loop state = do
                         displayCs (hand player)
                         -- putStrLn $ show (hand player)
                         (State players' deck' td_stack) <- putCard_Phase1 state
-                        let state' =  State players' deck' (remove_fake td_stack)
+                        let state' =  State players' deck' (removeDummy td_stack)
                         win (last players') (game_loop state')
               _ -> do
                         putStrLn $ "Player: " ++ (name player)
@@ -51,21 +55,19 @@ game_loop state = do
         (State (player:others) deck d_stack) = state
         v = value (head d_stack)
 
-putCard_Phase1 :: State -> IO State
+putCard_Phase1 :: State -> IO State --choose card from hand
 putCard_Phase1 state = do
     putStrLn "which card do you put down"
     n <- safeGetInt
     putCard_Phase2 n state
 
-putCard_Phase2 :: Int -> State -> IO State
+putCard_Phase2 :: Int -> State -> IO State -- validitate if number corresponds to card and draw a card if number was zero
 putCard_Phase2 n state
     | n == 0 = do
         ((State _ deck' d_stack'),hand') <- new_drawCards 1 state
         let player' = updatePlayer player (hand'++p_hand)
-        -- putCard_Phase1 (State (others++[player']) deck' d_stack')
-        -- in the mean time take cards until you can play
         return $ (State (others++[player']) deck' d_stack')
-        -- todo if card = Dummy do not remove the dummycard
+        -- todo -- if card = Dummy do not remove the dummycard -- is this still a bug ??
     | 1 <= n && n <= (length p_hand) = putCard_Phase3 n state
     | otherwise = do
         putStrLn "number out of bounds - try again"
@@ -74,7 +76,7 @@ putCard_Phase2 n state
         State (player:others) deck d_stack = state
         p_hand = hand player
 
-putCard_Phase3 :: Int -> State -> IO State
+putCard_Phase3 :: Int -> State -> IO State -- check if card is puttable according to uno rules
 putCard_Phase3 n state
     | p_card `equiv` s_card = do
         putCard_Phase4 p_card (State (player':others) deck d_stack)
@@ -89,8 +91,7 @@ putCard_Phase3 n state
         new_hand = cancel n p_hand
         player' = updatePlayer player new_hand
 
-
-putCard_Phase4 :: Card -> State -> IO State
+putCard_Phase4 :: Card -> State -> IO State -- make actions of special cards e.g. give cards or change direction
 putCard_Phase4 card state
     | v == ChDir = do
                             let players' = (reverse others) ++ [player]
@@ -117,19 +118,21 @@ putCard_Phase4 card state
         State (player:others) deck d_stack = state
         (p2:others') = others
 
+-- todo -- make this function disappear - it is deprecated - and only one point in code uses it
 get_Players_Deck :: Int -> [Card] -> IO (Deck, [Player])
 get_Players_Deck n deck = get_Players_Deck' n deck [] where
     get_Players_Deck' n deck players
         | n <= 0 = return (deck, players)
         | otherwise = do
             putStrLn ("please enter player " ++ show n ++ "'s name")
-            name <- getLine -- todo make safe version
+            name <- getLine
             (deck', hand) <- drawCards 5 deck
             let player = HPlayer name hand
             get_Players_Deck' (n - 1) deck' ([player] ++ players)
 
+-- todo -- here too this function is only used by the previous deprecated function
 drawCards :: Int -> [Card] -> IO (Deck, Hand)
--- todo make safe drawing e.g. draw 4 and just 3 cards in deck
+-- todo -- make safe drawing e.g. draw 4 and just 3 cards in deck
 drawCards n cards = drawCards' n (cards, []) where
     drawCards' n (cards, drawn)
             |n <= 0 = return (cards,drawn)
@@ -142,16 +145,18 @@ new_drawCards n state = new_drawCards' n (state, []) where
     new_drawCards' n (state, drawn)
         |n <= 0 = return (state, drawn)
         |deck == [] = new_drawCards' n (State players d_stack' [topcard], drawn)
-        |otherwise = new_drawCards' (n - 1) (State players cs d_stack, c:drawn)
+        |otherwise = do
+                        (cs, c) <- getRandomCardfrom deck
+                        new_drawCards' (n - 1) (State players cs d_stack, c:drawn)
         where (State players deck d_stack) = state
               (topcard:d_stack') = d_stack
-              (c:cs) = deck
 
 getRandomCardfrom :: [Card] -> IO ([Card],Card)
 getRandomCardfrom cards = do
     n <- getStdRandom (randomR (0,(length cards) - 1))
     return $ pick n cards
 
+-- is it possible to write this more sexy
 equiv :: Card -> Card -> Bool
 equiv c1 c2
     | color c1 == color c2 = True
@@ -159,7 +164,7 @@ equiv c1 c2
     | color c1 == Black = True
     | otherwise = False
 
-{- todo make special procedures for black cards -}
+-- black cards need a color indicating dummy on top
 getDummy :: Card -> IO Card
 getDummy c = do
     putStrLn "please do give me a Color"
@@ -171,10 +176,10 @@ getDummy c = do
               4 -> do return $ Card Blue Dummy
               _ -> do getDummy c
 
-remove_fake :: [a] -> [a]
-remove_fake [] = error "too few cards"
-remove_fake (_:[]) = error "too few cards"
-remove_fake (c:_:cs) = (c:cs)
+removeDummy :: [a] -> [a]
+removeDummy [] = error "too few cards"
+removeDummy (_:[]) = error "too few cards"
+removeDummy (c:_:cs) = (c:cs)
 
 win :: Player -> IO () -> IO ()
 win player f
@@ -202,17 +207,7 @@ displayC' n (Card color value) = do
             |(mod n 8) == 0= "\n"
             |otherwise = []
 
--- displayC :: Card -> IO ()
--- displayC (Card color value) = do
---     setSGR [SetColor Foreground Vivid color]
---     putStr $ "|"++show value ++"|"
---     setSGR [SetColor Foreground Vivid White]
-
 {- Auxiliary Functions -}
--- safeGetInt :: Int
--- safeGetInt = do
---     line <- getLine
---     reads <$> getLine :: [(Int,String)]
 
 safeGetInt :: IO Int
 safeGetInt = do
